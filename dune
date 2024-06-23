@@ -1,0 +1,3 @@
+(executable
+ (name jsonpath)
+ (libraries jsonaf core))
