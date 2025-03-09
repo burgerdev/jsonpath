@@ -1,0 +1,55 @@
+name: "release"
+
+on:
+  push:
+    branches:
+      - "main"
+
+jobs:
+  build:
+    name: "Build"
+    runs-on: "ubuntu-latest"
+    container: 
+      image: "ocaml/opam:alpine"
+      options: --user 0
+
+    steps:
+      - name: "fetch dependencies"
+        run: |
+          sudo -u opam opam install -y dune jsonaf
+
+      - uses: "actions/checkout@v3"
+
+      - name: "build"
+        run: |
+          chown -R opam .
+          sudo -u opam echo "(-cclib -static)" >link_flags
+          sudo -u opam bash -c 'eval $(opam config env) && dune build'
+          cp _build/default/jsonpath.exe _build/default/jsonpath-${{runner.arch}}
+
+      - uses: "actions/upload-artifact@v4"
+        with:
+          name: "binary"
+          path: "_build/default/jsonpath-*"
+          if-no-files-found: error
+  pre-release:
+    name: "Pre Release"
+    needs: "build"
+    runs-on: "ubuntu-latest"
+    permissions:
+      contents: "write"
+
+    steps:
+      - uses: "actions/checkout@v3"
+      - uses: "actions/download-artifact@v4"
+        with:
+          name: "binary"
+          path: "_release"
+      - name: "release"
+        env:
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+        run: |
+          # delete stuff first
+          gh release delete nightly --cleanup-tag -y || true
+          # prelease; * includes all artifacts into the release
+          gh release create nightly -p -t Nightly -n "Automatic build from head of main" _release/*
