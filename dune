@@ -1,3 +1,4 @@
 (executable
  (name jsonpath)
- (libraries jsonaf core))
+ (libraries jsonaf)
+ (link_flags (:include link_flags)))
